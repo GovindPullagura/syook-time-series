@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Jack Reacher",
+    "origin": "Bengaluru",
+    "destination": "Mumbai"
+  },
+  {
+    "name": "John Wick",
+    "origin": "New York",
+    "destination": "Los Angeles"
+  }
+]
