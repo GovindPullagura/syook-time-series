@@ -4,17 +4,29 @@ const fs = require("fs");
 // Load data.json with constant values
 const data = JSON.parse(fs.readFileSync("data.json"));
 
+// Extract names and cities from the JSON data
+const names = data.names;
+const cities = data.cities;
+
 // Function to generate a random message
 function generateRandomMessage() {
-  const randomIndex = Math.floor(Math.random() * data.length);
-  const { name, origin, destination } = data[randomIndex];
+  const randomName = names[Math.floor(Math.random() * names.length)];
+  const randomOrigin = cities[Math.floor(Math.random() * cities.length)];
+  const randomDestination = cities[Math.floor(Math.random() * cities.length)];
+
   const message = {
-    name,
-    origin,
-    destination,
+    name: randomName,
+    origin: randomOrigin,
+    destination: randomDestination,
     secret_key: crypto
       .createHash("sha256")
-      .update(JSON.stringify({ name, origin, destination }))
+      .update(
+        JSON.stringify({
+          name: randomName,
+          origin: randomOrigin,
+          destination: randomDestination,
+        })
+      )
       .digest("hex"),
   };
   return message;
