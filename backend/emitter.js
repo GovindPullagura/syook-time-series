@@ -1,62 +1,84 @@
 const crypto = require("crypto");
-const fs = require("fs");
+const io = require("socket.io-client");
+const data = require("./data.json");
 
-// Load data.json with constant values
-const data = JSON.parse(fs.readFileSync("data.json"));
+const serverUrl = "http://localhost:8080"; // Replace with your listener server URL
+const socket = io(serverUrl);
 
-// Extract names and cities from the JSON data
 const names = data.names;
 const cities = data.cities;
 
-// Function to generate a random message
 function generateRandomMessage() {
-  const randomName = names[Math.floor(Math.random() * names.length)];
-  const randomOrigin = cities[Math.floor(Math.random() * cities.length)];
-  const randomDestination = cities[Math.floor(Math.random() * cities.length)];
+  const name = names[Math.floor(Math.random() * names.length)];
+  const origin = cities[Math.floor(Math.random() * cities.length)];
+  const destination = cities[Math.floor(Math.random() * cities.length)];
 
-  const message = {
-    name: randomName,
-    origin: randomOrigin,
-    destination: randomDestination,
-    secret_key: crypto
-      .createHash("sha256")
-      .update(
-        JSON.stringify({
-          name: randomName,
-          origin: randomOrigin,
-          destination: randomDestination,
-        })
-      )
-      .digest("hex"),
+  const originalMessage = {
+    name,
+    origin,
+    destination,
   };
-  return message;
+
+  // Create a secret_key by creating a sha-256 hash of the originalMessage
+  const secret_key = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(originalMessage))
+    .digest("hex");
+
+  return {
+    ...originalMessage,
+    secret_key,
+  };
 }
 
-// Function to encrypt a message
-function encryptMessage(message) {
-  const key = crypto.randomBytes(32); // 256-bit key
-  const iv = crypto.randomBytes(16); // Initialization vector
-  const cipher = crypto.createCipheriv("aes-256-ctr", key, iv);
-  const encryptedMessage = cipher.update(
-    JSON.stringify(message),
-    "utf8",
-    "hex"
+function encryptMessage(message, encryptionKey) {
+  const cipher = crypto.createCipheriv(
+    "aes-256-ctr",
+    encryptionKey,
+    Buffer.from("00000000000000000000000000000000", "hex")
   );
-  return `${encryptedMessage}|${key.toString("hex")}${iv.toString("hex")}`;
+
+  let encryptedMessage = cipher.update(JSON.stringify(message), "utf-8", "hex");
+  encryptedMessage += cipher.final("hex");
+
+  return encryptedMessage;
 }
 
-// Emit data stream over a socket every 10 seconds
-function emitDataStream(io) {
-  setInterval(() => {
-    const numMessages = Math.floor(Math.random() * 451) + 49; // Randomize the number of messages
-    const messages = [];
-    for (let i = 0; i < numMessages; i++) {
-      const message = generateRandomMessage();
-      const encryptedMessage = encryptMessage(message);
-      messages.push(encryptedMessage);
-    }
-    io.emit("dataStream", messages.join("|"));
-  }, 10000); // Emit every 10 seconds
-}
+socket.on("connect", () => {
+  console.log("Emitter connected to the server.");
+});
 
-module.exports = { emitDataStream };
+socket.on("disconnect", () => {
+  console.log("Emitter disconnected from the server.");
+});
+
+const emitterFunction = () => {
+  // Generate a random number of messages between 49 and 499
+  const numberOfMessages = 3;
+  //   const numberOfMessages = Math.floor(Math.random() * (499 - 49 + 1) + 49);
+  const encryptedMessages = []; // Array to store individual encrypted messages
+  let encryptionKey = crypto.randomBytes(32);
+
+  for (let i = 0; i < numberOfMessages; i++) {
+    const message = generateRandomMessage();
+
+    const encryptedMessage = encryptMessage(message, encryptionKey);
+    encryptedMessages.push(encryptedMessage); // Store the encrypted message
+  }
+
+  // Concatenate the encrypted messages with "|" as the separator
+  const concatenatedMessages = encryptedMessages.join("|");
+
+  console.log(concatenatedMessages);
+
+  socket.emit("message", {
+    data: concatenatedMessages,
+    encryptionKey: encryptionKey.toString("hex"), // Use encryptionKey here
+  });
+};
+
+// setInterval(() => {
+//   emitterFunction();
+// }, 10000); // Emit a batch of messages every 10 seconds
+
+module.exports = { emitterFunction };

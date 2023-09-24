@@ -1,27 +1,27 @@
 import React, { useEffect, useState } from "react";
 import io from "socket.io-client";
 
-const socket = io("http://localhost:8080/data", {
-  transports: ["websocket"],
-  upgrade: false,
-  cors: {
-    origin: "http://localhost:8080/data", // Replace with your frontend URL
-    methods: ["GET", "POST"],
-  },
-});
+// Connect to the server
+const socket = io("http://localhost:3001");
 
 const DataComponent = () => {
   const [realTimeData, setRealTimeData] = useState([]);
-  // const socket = io("http://localhost:8080/data");
 
   useEffect(() => {
-    socket.on("dataSaved", (newData) => {
-      setRealTimeData((prevData) => [...prevData, newData]);
+    socket.on("dataStream", (dataStream) => {
+      console.log("Received dataStream event from server:");
+      console.log(dataStream);
+
+      setRealTimeData((prevData) => [...prevData, ...dataStream]);
     });
 
-    return () => {
-      socket.off("dataSaved");
-    };
+    socket.on("disconnect", () => {
+      console.log("Disconnected from server");
+    });
+
+    socket.on("error", (error) => {
+      console.error("Socket error:", error);
+    });
   }, []);
 
   return (
